@@ -1,0 +1,258 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organisation {
+  id                           String           @id @default(uuid())
+  name                         String
+  numberOfEdits                Int
+  maxNumberOfEdits             Int              @default(50000)
+  reportsGenerated             Int
+  maxNumberOfReportsToGenerate Int              @default(1000)
+  // Relations
+  users                        User[]
+  productMappings              ProductMapping[]
+  Supplier                     Supplier[]
+}
+
+model Product {
+  id             String           @id @default(uuid())
+  name           String
+  isActive       Boolean
+  // Relations
+  productMapping ProductMapping[]
+}
+
+model ProductMapping {
+  id             String       @id @default(uuid())
+  // Relations
+  organisationId String
+  productId      String
+  products       Product      @relation(fields: [productId], references: [id])
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+}
+
+model User {
+  id                          String                      @id @default(uuid())
+  firstName                   String
+  lastName                    String
+  email                       String                      @unique
+  isActive                    Boolean                     @default(true)
+  addedOn                     DateTime                    @default(now())
+  userRole                    UserRoles
+  // Relations
+  organisation                Organisation                @relation(fields: [organisationId], references: [id])
+  organisationId              String
+  itemsCreated                Item[]                      @relation("ItemAddedByUser")
+  itemsChanged                Item[]                      @relation("ItemChangedByUser")
+  suppliersCreated            Supplier[]                  @relation("SupplierAddedByUser")
+  suppliersChanged            Supplier[]                  @relation("SupplierChangedByUser")
+  categoryAdded               Category[]                  @relation("CategoryAddedByUser")
+  categoryChanged             Category[]                  @relation("CategoryChangedByUser")
+  subCategoryAdded            SubCategory[]               @relation("SubCategoryCreatedByUser")
+  subCategoryChanged          SubCategory[]               @relation("SubCategoryChangedByUser")
+  warehouseItemAdded          ItemInWarehouse[]           @relation("WarehouseItemAddedByUser")
+  warehouseItemChanged        ItemInWarehouse[]           @relation("WarehouseItemChangedByUser")
+  storeItemAdded              ItemInStore[]               @relation("StoreItemAddedByUser")
+  storeItemChanged            ItemInStore[]               @relation("StoreItemChangedByUser")
+  stockTransferReportsAdded   StockTransferReportHeader[] @relation("StockTransferReportAddedByUser")
+  stockTransferReportsChanged StockTransferReportHeader[] @relation("StockTransferReportChangedByUser")
+  WarehouseStockCardAdded     WarehouseStockCard[]        @relation("WarehouseStockAddedByUser")
+  WarehouseStockCardChanged   WarehouseStockCard[]        @relation("WarehouseStockChangedByUser")
+  StoreStockCardAdded         StoreStockCard[]            @relation("StoreStockAddedByUser")
+  StoreStockCardChanged       StoreStockCard[]            @relation("StoreStockChangedByUser")
+}
+
+model Item {
+  id               String                @id @unique @default(uuid())
+  itemName         String
+  brandName        String
+  sku              String?               @unique
+  isActive         Boolean               @default(true)
+  addedOn          DateTime              @default(now())
+  changedOn        DateTime?
+  // Relations
+  supplierId       String
+  supplier         Supplier              @relation(fields: [supplierId], references: [id])
+  addedById        String
+  addedBy          User                  @relation("ItemAddedByUser", fields: [addedById], references: [id])
+  changedById      String?
+  changedBy        User?                 @relation("ItemChangedByUser", fields: [changedById], references: [id])
+  categoryMappings CategoryMapping[]
+  warehouse        ItemInWarehouse?
+  store            ItemInStore?
+  stockTransfers   StockTransferReport[]
+}
+
+model Supplier {
+  id             String       @id @default(uuid())
+  supplierName   String       @unique
+  address        String?
+  contactNumber  String?
+  isActive       Boolean      @default(true)
+  addedOn        DateTime     @default(now())
+  changedOn      DateTime?
+  // Relations
+  addedById      String
+  addedBy        User         @relation("SupplierAddedByUser", fields: [addedById], references: [id])
+  changedById    String?
+  changedBy      User?        @relation("SupplierChangedByUser", fields: [changedById], references: [id])
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+  items          Item[]
+}
+
+model Category {
+  id               String            @id @default(uuid())
+  categoryName     String            @unique
+  isActive         Boolean           @default(true)
+  addedOn          DateTime          @default(now())
+  changedOn        DateTime?
+  // Relations
+  addedById        String
+  addedBy          User              @relation("CategoryAddedByUser", fields: [addedById], references: [id])
+  changedById      String?
+  changedBy        User?             @relation("CategoryChangedByUser", fields: [changedById], references: [id])
+  subCategories    SubCategory[]
+  categoryMappings CategoryMapping[]
+}
+
+model SubCategory {
+  id               String            @id @default(uuid())
+  subCategoryName  String            @unique
+  isActive         Boolean           @default(true)
+  addedOn          DateTime          @default(now())
+  changedOn        DateTime?
+  // Relations
+  categoryId       String
+  category         Category          @relation(fields: [categoryId], references: [id])
+  addedById        String
+  addedBy          User              @relation("SubCategoryCreatedByUser", fields: [addedById], references: [id])
+  categoryMappings CategoryMapping[]
+  changedById      String?
+  changedBy        User?             @relation("SubCategoryChangedByUser", fields: [changedById], references: [id])
+}
+
+model CategoryMapping {
+  itemId        String
+  item          Item        @relation(fields: [itemId], references: [id])
+  categoryId    String
+  category      Category    @relation(fields: [categoryId], references: [id])
+  subCategoryId String
+  subCategory   SubCategory @relation(fields: [subCategoryId], references: [id])
+
+  @@id([itemId, categoryId, subCategoryId])
+}
+
+model ItemInWarehouse {
+  id                  String               @id @default(uuid())
+  quantity            Int
+  inUnitsOf           String
+  priceAtCost         Float
+  location            String
+  addedOn             DateTime             @default(now())
+  changedOn           DateTime?
+  // Relations
+  itemId              String               @unique
+  item                Item                 @relation(fields: [itemId], references: [id])
+  addedById           String
+  addedBy             User                 @relation("WarehouseItemAddedByUser", fields: [addedById], references: [id])
+  changedById         String?
+  changedBy           User?                @relation("WarehouseItemChangedByUser", fields: [changedById], references: [id])
+  warehouseStockCards WarehouseStockCard[]
+}
+
+model WarehouseStockCard {
+  id                String          @id @default(uuid())
+  quantityIn        Int
+  quantityOut       Int
+  addedOn           DateTime        @default(now())
+  changedOn         DateTime?
+  // Relations
+  itemInWarehouseId String
+  itemInWarehouse   ItemInWarehouse @relation(fields: [itemInWarehouseId], references: [id])
+  addedById         String
+  addedBy           User            @relation("WarehouseStockAddedByUser", fields: [addedById], references: [id])
+  changedById       String?
+  changedBy         User?           @relation("WarehouseStockChangedByUser", fields: [changedById], references: [id])
+}
+
+model ItemInStore {
+  id              String           @id @default(uuid())
+  quantity        Int
+  inUnitsOf       String
+  retailPrice     Float
+  addedOn         DateTime         @default(now())
+  changedOn       DateTime?
+  // Relations
+  itemId          String           @unique
+  item            Item             @relation(fields: [itemId], references: [id])
+  addedById       String
+  addedBy         User             @relation("StoreItemAddedByUser", fields: [addedById], references: [id])
+  changedById     String?
+  changedBy       User?            @relation("StoreItemChangedByUser", fields: [changedById], references: [id])
+  storeStockCards StoreStockCard[]
+}
+
+model StoreStockCard {
+  id            String      @id @default(uuid())
+  quantityIn    Int
+  quantityOut   Int
+  addedOn       DateTime    @default(now())
+  changedOn     DateTime?
+  // Relations
+  itemInStoreId String
+  itemInStore   ItemInStore @relation(fields: [itemInStoreId], references: [id])
+  addedById     String
+  addedBy       User        @relation("StoreStockAddedByUser", fields: [addedById], references: [id])
+  changedById   String?
+  changedBy     User?       @relation("StoreStockChangedByUser", fields: [changedById], references: [id])
+}
+
+model StockTransferReportHeader {
+  id          String    @id @default(uuid())
+  reportName  String
+  reportDate  DateTime
+  addedOn     DateTime  @default(now())
+  changedOn   DateTime?
+  // Relations
+  addedById   String
+  addedBy     User      @relation("StockTransferReportAddedByUser", fields: [addedById], references: [id])
+  changedById String?
+  changedBy   User?     @relation("StockTransferReportChangedByUser", fields: [changedById], references: [id])
+}
+
+model StockTransferReport {
+  id          String              @id @default(uuid())
+  quantity    Int
+  destination TransferDestination
+  status      TransferStatus
+  // Relations
+  itemId      String
+  item        Item                @relation(fields: [itemId], references: [id])
+}
+
+enum TransferStatus {
+  REQUESTED
+  TRANSIT_WAREHOUSE
+  TRANSIT_STORE
+  RECEIVED
+}
+
+enum TransferDestination {
+  STORE
+  WAREHOUSE
+}
+
+enum UserRoles {
+  ADMIN
+  USER
+}
